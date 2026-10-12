@@ -1,0 +1,20 @@
+[Unit]
+Description=Motel reports web
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=motel-web
+Group=motel-web
+WorkingDirectory=/opt/motel-web
+EnvironmentFile=/etc/motel-web.env
+ExecStart=/usr/bin/node /opt/motel-web/dist/server/index.js
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,58 @@
+@media(max-width:680px){
+  body{font-size:14px}
+  .shell{display:block;min-height:100vh}
+  .sidebar{position:sticky;z-index:10;top:0;width:100%;min-width:0;height:auto;padding:9px 10px;background:#173b34;box-shadow:0 2px 12px #102c2580}
+  .logo{padding:0 4px;margin:0 0 8px;font-size:18px}
+  .logo .brand-mark{width:30px;height:30px;font-size:18px;border-radius:8px}
+  .logo>span:last-child{display:block}
+  .logo small{font-size:8px}
+  .nav-label{display:none}
+  .sidebar nav{display:flex;gap:5px;overflow-x:auto;padding-bottom:2px}
+  .sidebar nav button{flex:0 0 auto;justify-content:center;gap:6px;min-height:42px;padding:9px 11px;border-radius:7px}
+  .sidebar nav button span{display:inline;font-size:11px}
+  .sidebar-bottom{border:0;margin:7px 0 0;padding:7px 2px 0;border-top:1px solid #41665b}
+  .account{display:block}
+  .logout{display:block;margin-left:auto;min-width:42px;min-height:38px}
+  .content{padding:18px 10px 40px}
+  .topbar{align-items:flex-start;padding-bottom:16px;margin-bottom:18px;gap:8px}
+  .topbar h1{font-size:25px;line-height:1.15}
+  .topbar .eyebrow{font-size:9px}
+  .sync{display:block;font-size:10px;padding:7px 9px;white-space:nowrap}
+  .intro{align-items:stretch;flex-direction:column;gap:12px;margin-bottom:16px}
+  .intro .outline{align-self:flex-start}
+  .filters{display:grid;grid-template-columns:1fr;gap:5px;padding:14px;margin-bottom:16px}
+  .filters label{min-width:0}
+  .filters input,.filters select{height:43px}
+  .card{border-radius:10px}
+  .card-head{padding:15px;font-size:13px}
+  .table-wrap{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+  table{min-width:720px}
+  th{padding:12px 13px}
+  td{padding:13px;font-size:12px}
+  .pagination{padding:12px 14px;gap:10px;align-items:flex-start}
+  .pagination>span{line-height:1.5}
+  .pagination button{min-height:38px;margin-left:3px}
+  .metrics{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+  .metrics>div{padding:14px 12px}
+  .metrics span{font-size:10px;margin-bottom:8px}
+  .metrics strong{font-size:18px}
+  .login-shell{display:block}
+  .login-art{min-height:205px;padding:24px 22px}
+  .login-art h1{font-size:31px;margin:12px 0}
+  .login-pane{padding:30px 22px}
+}
+@media(max-width:680px){
+  .cash-detail{gap:12px}
+  .cash-detail .detail-actions{position:sticky;top:0;z-index:5;background:#f4f5f2;padding:2px 0 10px}
+  .cash-detail .detail-actions .outline{min-height:42px;padding:10px 12px}
+  .detail-heading{padding:17px}
+  .detail-heading h2{font-size:24px}
+  .detail-heading dl{grid-template-columns:1fr 1fr;gap:9px 12px;font-size:11px}
+  .detail-heading dd{text-align:right;overflow-wrap:anywhere}
+  .detail-metrics{margin:0}
+  .detail-grid,.detail-grid.two{grid-template-columns:1fr}
+  .detail-lines{padding:16px;gap:10px 8px;font-size:12px}
+  .detail-warning{font-size:12px}
+  .detail-section .card-head{padding:14px 15px}
+  .detail-section table{min-width:650px}
+}

@@ -1,0 +1,6 @@
+[Unit]
+Description=Renew motel IP HTTPS certificate
+
+[Service]
+Type=oneshot
+ExecStart=/opt/certbot-venv/bin/certbot renew --non-interactive --webroot --webroot-path /var/www/html --preferred-profile shortlived --deploy-hook "systemctl reload nginx"
