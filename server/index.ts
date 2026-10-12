@@ -42,6 +42,7 @@ app.get('/api/status', wrap(async (_req, res) => {
   res.json({ sync: result.rows[0] || null });
 }));
 app.get('/api/occupancy', wrap(async (_req, res) => {
+  res.setHeader('Cache-Control','no-store, max-age=0');
   const result = await auth.query(`SELECT room_id AS id,reception_id,room_number,room_type,state,state_description,
     room_description,elapsed_label,elapsed_seconds,amount,background_color,text_color,entry_at,is_hour,is_sleep,
     is_lodging,advance,extra_hours,client_door,cleaning_door,is_manual,minimum_amount,

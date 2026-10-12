@@ -11,7 +11,7 @@ export async function api<T>(url: string, init?: RequestInit): Promise<T> {
     const token = await tokenResponse.json() as {token:string};
     headers.set('X-CSRF-Token',token.token);
   }
-  const response = await fetch(url,{credentials:'include',...init,headers});
+  const response = await fetch(url,{credentials:'include',...init,cache:'no-store',headers});
   const body = await response.json();
   if (!response.ok) {
     if (response.status === 401 && url !== '/api/login' && url !== '/api/change-password' && url !== '/api/me') window.dispatchEvent(new Event('auth-required'));
