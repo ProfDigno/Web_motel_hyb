@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { api, type AuthResult } from './api';
+import { APP_VERSION } from './version';
 
 export default function AuthPanel({ onLogin }: { onLogin: (result: AuthResult) => void }) {
   const [username,setUsername] = useState('');
@@ -20,7 +21,7 @@ export default function AuthPanel({ onLogin }: { onLogin: (result: AuthResult) =
     finally { setBusy(false); }
   }
 
-  return <div className="login-shell"><div className="login-art"><div className="brand-mark">M</div><div><span className="eyebrow">GESTIÓN Y ANÁLISIS</span><h1>Información clara<br/>para cada turno.</h1><p>Informes de caja y usuarios exclusivos para la web.</p></div><div className="art-footer">MOTEL · PANEL DE INFORMES</div></div><div className="login-pane"><form className="login-card" onSubmit={submit}>
+  return <div className="login-shell"><div className="login-art"><div className="brand-mark">M</div><div><span className="eyebrow">GESTIÓN Y ANÁLISIS</span><h1>Información clara<br/>para cada turno.</h1><p>Informes de caja y usuarios exclusivos para la web.</p></div><div className="art-footer">MOTEL · PANEL DE INFORMES · v{APP_VERSION}</div></div><div className="login-pane"><form className="login-card" onSubmit={submit}>
     <span className="eyebrow dark">ACCESO</span>
     <h2>Bienvenido</h2>
     <p>Ingresá con tu cuenta web.</p>

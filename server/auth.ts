@@ -15,6 +15,7 @@ declare module 'express-session' {
 
 type WebUser = { user_id: number; username: string; password_hash: string; role: 'admin' | 'consulta'; active: boolean; session_version: number };
 const publicOrigin = process.env.PUBLIC_ORIGIN || 'https://163.245.222.236';
+const localOrigin = (origin: string | undefined) => process.env.NODE_ENV !== 'production' && !!origin && /^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin);
 const authError = 'Usuario o contraseña incorrectos.';
 const userSelect = 'SELECT user_id,username,password_hash,role,active,session_version FROM usuario_web';
 const wrap = (fn: (req: Request, res: Response) => Promise<void>) => (req: Request, res: Response, next: NextFunction) => { fn(req, res).catch(next); };
@@ -61,7 +62,8 @@ export function attachAuth(app: Express, auth: Pool) {
   app.use('/api', (req,res,next) => {
     res.setHeader('Cache-Control','no-store');
     if (['POST','PUT','PATCH','DELETE'].includes(req.method)) {
-      if (req.get('origin') && req.get('origin') !== publicOrigin) { res.status(403).json({error:'Solicitud no permitida.'}); return; }
+      const origin = req.get('origin');
+      if (origin && origin !== publicOrigin && !localOrigin(origin)) { res.status(403).json({error:'Solicitud no permitida.'}); return; }
       if (!req.session.csrfToken || req.get('x-csrf-token') !== req.session.csrfToken) { res.status(403).json({error:'Actualice la página e intente nuevamente.'}); return; }
     }
     next();

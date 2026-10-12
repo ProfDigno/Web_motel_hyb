@@ -20,7 +20,7 @@ El entorno aislado está en `.venv-sync` y el registro de diagnóstico en `logs/
 
 ## Desarrollo
 
-Instalar dependencias con `npm install`, configurar `REPORT_DATABASE_URL`, `AUTH_DATABASE_URL`, `SESSION_SECRET` y `PUBLIC_ORIGIN`, y ejecutar `npm run dev`. `npm run check` verifica tipos y `npm run build` genera `dist/server` y `dist/web`. La configuración de ejemplo está en `.env.example`; nunca colocar credenciales reales en el repositorio.
+Instalar dependencias con `npm install` y copiar `.env.example` a `.env`. En una PC local, preparar la base de autenticación con `powershell -ExecutionPolicy Bypass -File scripts/setup-local.ps1`; el esquema crea `motel_web_auth.occupancy_snapshot` y las tablas de acceso. La base de informes puede apuntar a una copia local de `bddaomotelkm8_23`. Luego ejecutar `npm run bootstrap-admin` una sola vez para generar el usuario administrador y `npm run dev`. `npm run check` verifica tipos y `npm run build` genera `dist/server` y `dist/web`. La configuración real queda en `.env`, ignorada por Git; nunca colocar credenciales en el repositorio.
 
 ## Operación del VPS
 

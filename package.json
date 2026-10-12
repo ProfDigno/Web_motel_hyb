@@ -1,12 +1,13 @@
 {
   "name": "motel-informes",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"tsx watch server/index.ts\" \"vite --host 127.0.0.1\"",
+    "dev": "concurrently \"node --env-file=.env node_modules/tsx/dist/cli.mjs watch server/index.ts\" \"vite --host 127.0.0.1\"",
     "build": "tsc -p tsconfig.server.json && vite build",
-    "start": "node dist/server/index.js",
+    "start": "node --env-file=.env dist/server/index.js",
+    "bootstrap-admin": "node --env-file=.env --import tsx server/bootstrap-admin.ts",
     "check": "tsc --noEmit -p tsconfig.server.json && tsc --noEmit -p tsconfig.web.json"
   },
   "dependencies": {

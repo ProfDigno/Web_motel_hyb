@@ -13,6 +13,7 @@ const secret = process.env.SESSION_SECRET;
 if (!reportUrl || !authUrl || !secret || secret.length < 32) throw new Error('Missing database URLs or SESSION_SECRET (min 32 characters)');
 const report = new Pool({ connectionString: reportUrl, max: 10 });
 const auth = new Pool({ connectionString: authUrl, max: 5 });
+const directLocalOccupancy = process.env.LOCAL_OCCUPANCY_DIRECT === 'true' && process.env.NODE_ENV !== 'production';
 report.on('error', error => { console.error('Conexión de informes cerrada; se abrirá otra cuando sea necesaria:', error.message); });
 auth.on('error', error => { console.error('Conexión de acceso cerrada; se abrirá otra cuando sea necesaria:', error.message); });
 const PgStore = connectPgSimple(session);
@@ -21,7 +22,7 @@ app.disable('x-powered-by');
 app.set('trust proxy', 'loopback');
 app.use((_req,res,next) => { res.setHeader('X-Content-Type-Options','nosniff'); res.setHeader('Referrer-Policy','no-referrer'); res.setHeader('X-Frame-Options','DENY'); res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"); next(); });
 app.use(express.json({ limit: '16kb' }));
-app.use(session({ store: new PgStore({ pool: auth, createTableIfMissing: true }), secret, resave: false, saveUninitialized: false, name: 'motel.sid', cookie: { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', maxAge: 8 * 60 * 60 * 1000 } }));
+app.use(session({ store: new PgStore({ pool: auth, createTableIfMissing: false }), secret, resave: false, saveUninitialized: false, name: 'motel.sid', cookie: { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', maxAge: 8 * 60 * 60 * 1000 } }));
 
 const wrap = (fn: (req: Request, res: Response) => Promise<void>) => (req: Request, res: Response, next: NextFunction) => { fn(req, res).catch(next); };
 const int = (value: unknown, fallback = 0) => { const n = Number(value); return Number.isInteger(n) && n >= 0 ? n : fallback; };
@@ -35,6 +36,67 @@ const dashboardDate = (value: unknown, fallback: string) => {
   return check.getUTCFullYear() === year && check.getUTCMonth() === month - 1 && check.getUTCDate() === day ? text : null;
 };
 
+const localOccupancySql = `SELECT idhabitacion_dato AS room_id,
+  COALESCE(idhabitacion_recepcion_actual,0) AS reception_id,
+  nro_habitacion::integer AS room_number,
+  COALESCE(tipo_habitacion,'') AS room_type,
+  COALESCE(estado,'') AS state,
+  COALESCE(descrip_estado,estado,'') AS state_description,
+  COALESCE(descripcion_habitacion,'') AS room_description,
+  COALESCE(tiempo_estado,'.') AS elapsed_label,
+  GREATEST(COALESCE(CASE
+    WHEN estado='OCUPADO' THEN extract(epoch FROM current_timestamp-fec_ocupado_inicio)
+    WHEN estado IN ('SUCIO','LIMPIANDO') THEN extract(epoch FROM current_timestamp-fec_ocupado_fin)
+    ELSE 0 END,0)::integer,0) AS elapsed_seconds,
+  COALESCE(monto_gral,0) AS amount,
+  COALESCE(color_fondo,'#F0F0F0') AS background_color,
+  COALESCE(color_texto,'#000000') AS text_color,
+  CASE WHEN estado='OCUPADO' THEN fec_ocupado_inicio ELSE NULL END AS entry_at,
+  COALESCE(es_por_hora,false) AS is_hour,
+  COALESCE(es_por_dormir,false) AS is_sleep,
+  COALESCE(es_hospedaje,false) AS is_lodging,
+  COALESCE(monto_adelanto,0) AS advance,
+  COALESCE(cant_hora_adicional,0) AS extra_hours,
+  COALESCE(puerta_cliente,false) AS client_door,
+  COALESCE(puerta_limpieza,false) AS cleaning_door,
+  COALESCE(es_manual,false) AS is_manual,
+  COALESCE(CASE
+    WHEN es_hospedaje THEN monto_por_hospedaje_minimo
+    WHEN es_por_dormir THEN monto_por_dormir_minimo
+    WHEN es_por_hora THEN monto_por_hora_minimo
+    ELSE 0 END,0) AS minimum_amount,
+  COALESCE(CASE
+    WHEN es_hospedaje THEN 0
+    WHEN es_por_dormir THEN monto_por_dormir_adicional
+    WHEN es_por_hora THEN monto_por_hora_adicional
+    ELSE 0 END,0) AS additional_unit_amount,
+  COALESCE(monto_consumision,0) AS consumption_amount,
+  COALESCE(orden,0) AS sort_order,
+  current_timestamp AS source_at
+FROM habitacion_recepcion_temp
+WHERE activo=true
+ORDER BY orden,nro_habitacion`;
+const occupancyColumns = ['room_id','reception_id','room_number','room_type','state','state_description','room_description','elapsed_label','elapsed_seconds','amount','background_color','text_color','entry_at','is_hour','is_sleep','is_lodging','advance','extra_hours','client_door','cleaning_door','is_manual','minimum_amount','additional_unit_amount','consumption_amount','sort_order','source_at'];
+
+async function refreshLocalOccupancy() {
+  if (!directLocalOccupancy) return;
+  const rows = (await report.query(localOccupancySql)).rows;
+  const client = await auth.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('TRUNCATE occupancy_snapshot');
+    const placeholders = occupancyColumns.map((_, index) => `$${index + 1}`).join(',');
+    const insert = `INSERT INTO occupancy_snapshot (${occupancyColumns.join(',')}) VALUES (${placeholders})`;
+    for (const row of rows) await client.query(insert, occupancyColumns.map(column => row[column]));
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 attachAuth(app, auth);
 
 app.get('/api/status', wrap(async (_req, res) => {
@@ -43,6 +105,7 @@ app.get('/api/status', wrap(async (_req, res) => {
 }));
 app.get('/api/occupancy', wrap(async (_req, res) => {
   res.setHeader('Cache-Control','no-store, max-age=0');
+  await refreshLocalOccupancy();
   const result = await auth.query(`SELECT room_id AS id,reception_id,room_number,room_type,state,state_description,
     room_description,elapsed_label,elapsed_seconds,amount,background_color,text_color,entry_at,is_hour,is_sleep,
     is_lodging,advance,extra_hours,client_door,cleaning_door,is_manual,minimum_amount,
@@ -55,6 +118,30 @@ app.get('/api/occupancy', wrap(async (_req, res) => {
     stale: !syncedAt || Date.now() - new Date(syncedAt).getTime() > 120000,
     rows: result.rows.map(row => ({ ...row, background_color:color(row.background_color,'#F0F0F0'), text_color:color(row.text_color,'#000000') }))
   });
+}));
+app.get('/api/occupancy/:receptionId/details', wrap(async (req, res) => {
+  const receptionId = int(req.params.receptionId);
+  if (!receptionId) { res.status(400).json({ error: 'Recepción inválida.' }); return; }
+  const current = await report.query(`SELECT estado FROM habitacion_recepcion_temp
+    WHERE idhabitacion_recepcion_actual=$1 AND activo=true LIMIT 1`, [receptionId]);
+  if (!current.rowCount || current.rows[0].estado !== 'OCUPADO') {
+    res.status(409).json({ error: 'La habitación ya no está ocupada.' }); return;
+  }
+  const [observations, items] = await Promise.all([
+    report.query(`SELECT v.idventa AS venta_id,v.fecha_creado,COALESCE(v.observacion,'') AS observacion
+      FROM venta v WHERE v.fk_idhabitacion_recepcion=$1
+      AND COALESCE(v.estado,'') NOT IN ('CANCELADO','ANULADO')
+      AND NULLIF(btrim(v.observacion),'') IS NOT NULL ORDER BY v.fecha_creado,v.idventa`, [receptionId]),
+    report.query(`SELECT vi.idventa_item,vi.fk_idventa AS venta_id,vi.fecha_creado,
+      COALESCE(vi.descripcion,'') AS descripcion,vi.cantidad,vi.precio_venta,
+      COALESCE(vi.cantidad,0)*COALESCE(vi.precio_venta,0) AS subtotal
+      FROM venta v JOIN venta_item vi ON vi.fk_idventa=v.idventa
+      WHERE v.fk_idhabitacion_recepcion=$1
+      AND COALESCE(v.estado,'') NOT IN ('CANCELADO','ANULADO')
+      AND COALESCE(vi.tipo_item,'') NOT IN ('CANCELADO','ANULADO')
+      ORDER BY vi.fecha_creado,vi.idventa_item`, [receptionId])
+  ]);
+  res.json({ observations: observations.rows, items: items.rows });
 }));
 app.get('/api/dashboard', wrap(async (req, res) => {
   const today = new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/Asuncion', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
