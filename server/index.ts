@@ -111,12 +111,34 @@ app.get('/api/occupancy', wrap(async (_req, res) => {
     is_lodging,advance,extra_hours,client_door,cleaning_door,is_manual,minimum_amount,
     additional_unit_amount,consumption_amount,sort_order,source_at
     FROM occupancy_snapshot ORDER BY sort_order,room_number`);
-  const syncedAt = result.rows[0]?.source_at || null;
+  let rows = result.rows;
+  if (!directLocalOccupancy && rows.some(row => row.state === 'OCUPADO' && Number(row.minimum_amount) === 0 && Number(row.additional_unit_amount) === 0 && Number(row.consumption_amount) === 0)) {
+    const financial = await report.query(`SELECT COALESCE(idhabitacion_recepcion_actual,0) AS reception_id,
+      COALESCE(CASE
+        WHEN es_hospedaje THEN monto_por_hospedaje_minimo
+        WHEN es_por_dormir THEN monto_por_dormir_minimo
+        WHEN es_por_hora THEN monto_por_hora_minimo
+        ELSE 0 END,0) AS minimum_amount,
+      COALESCE(CASE
+        WHEN es_hospedaje THEN 0
+        WHEN es_por_dormir THEN monto_por_dormir_adicional
+        WHEN es_por_hora THEN monto_por_hora_adicional
+        ELSE 0 END,0) AS additional_unit_amount,
+      COALESCE(monto_consumision,0) AS consumption_amount
+      FROM habitacion_recepcion_temp WHERE activo=true AND COALESCE(idhabitacion_recepcion_actual,0)>0`);
+    const byReception = new Map(financial.rows.map(row => [String(row.reception_id), row]));
+    rows = rows.map(row => {
+      const fallback = byReception.get(String(row.reception_id));
+      const missing = row.state === 'OCUPADO' && Number(row.minimum_amount) === 0 && Number(row.additional_unit_amount) === 0 && Number(row.consumption_amount) === 0;
+      return missing && fallback ? { ...row, minimum_amount:fallback.minimum_amount, additional_unit_amount:fallback.additional_unit_amount, consumption_amount:fallback.consumption_amount } : row;
+    });
+  }
+  const syncedAt = rows[0]?.source_at || null;
   const color = (value: unknown, fallback: string) => typeof value === 'string' && /^#[0-9a-fA-F]{6}$/.test(value) ? value : fallback;
   res.json({
     syncedAt,
     stale: !syncedAt || Date.now() - new Date(syncedAt).getTime() > 120000,
-    rows: result.rows.map(row => ({ ...row, background_color:color(row.background_color,'#F0F0F0'), text_color:color(row.text_color,'#000000') }))
+    rows: rows.map(row => ({ ...row, background_color:color(row.background_color,'#F0F0F0'), text_color:color(row.text_color,'#000000') }))
   });
 }));
 app.get('/api/occupancy/:receptionId/details', wrap(async (req, res) => {
